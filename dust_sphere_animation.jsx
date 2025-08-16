@@ -2,18 +2,6 @@ import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-/*
- Dust-sphere-animation — standalone Three.js implementation
- 
- How to use:
- - Install three: `npm i three`
- - Drop this file into your React app and render <DustSphereApp />.
-
- Notes:
- - Defaults: particleCount=2000, baseRadius=5, pulseAmplitude=0.6, pulseSpeed=1.05 (5% faster), rotationSpeed=0.65 (30% faster relative baseline used earlier).
- - Animation updates particle positions every frame (moves particles along precomputed normals). This gives an "in-and-out" dust pulse.
-*/
-
 export default function DustSphereApp({
   particleCount = 2000,
   baseRadius = 5,
