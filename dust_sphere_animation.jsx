@@ -32,7 +32,7 @@ export default function DustSphereApp({
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(width, height);
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -48,6 +48,9 @@ export default function DustSphereApp({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.07;
+    controls.enablePan = false;
+    controls.minDistance = baseRadius * 1.2;
+    controls.maxDistance = baseRadius * 6;
 
     // Lighting (subtle)
     const ambient = new THREE.AmbientLight(0xffffff, 0.25);
@@ -162,10 +165,25 @@ export default function DustSphereApp({
     }
     window.addEventListener("resize", handleResize);
 
+    // Auto-pause when tab not visible, and resume to previous state on return
+    let resumeOnVisible = null;
+    function handleVisibility() {
+      if (document.hidden) {
+        resumeOnVisible = runningRef.current;
+        runningRef.current = false;
+      } else {
+        if (resumeOnVisible !== null) {
+          runningRef.current = resumeOnVisible;
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
     // Cleanup on unmount
     return () => {
       cancelAnimationFrame(animationRef.current);
       window.removeEventListener("resize", handleResize);
+      document.removeEventListener("visibilitychange", handleVisibility);
       controls.dispose();
       if (pointsRef.current) scene.remove(pointsRef.current);
       try {

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dust Sphere</title>
+    <meta name="description" content="Animated dust sphere with Three.js" />
+    <style>
+      html, body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: #02020a;
+        color: #fff;
+        overflow: hidden;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+      #app {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+      #panel {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 10;
+        padding: 10px 12px;
+        background: rgba(0,0,0,0.35);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 8px;
+        font-size: 12px;
+        backdrop-filter: blur(4px);
+      }
+      #panel .row {
+        display: grid;
+        grid-template-columns: 120px 160px 68px;
+        align-items: center;
+        gap: 8px;
+        margin: 6px 0;
+      }
+      #panel input[type="range"] {
+        width: 100%;
+      }
+      #panel input[type="number"] {
+        width: 68px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.06);
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="panel">
+        <div class="row">
+          <label for="pcRange">Particles</label>
+          <input id="pcRange" type="range" min="1000" max="20000" step="500" />
+          <input id="pcNum" type="number" min="1000" max="20000" step="100" />
+        </div>
+        <div class="row">
+          <label for="paRange">Pulse amplitude</label>
+          <input id="paRange" type="range" min="0" max="1.5" step="0.05" />
+          <input id="paNum" type="number" min="0" max="1.5" step="0.05" />
+        </div>
+        <div class="row">
+          <label for="psRange">Pulse speed</label>
+          <input id="psRange" type="range" min="0" max="8" step="0.05" />
+          <input id="psNum" type="number" min="0" max="8" step="0.05" />
+        </div>
+        <div class="row">
+          <label for="rsRange">Rotation speed</label>
+          <input id="rsRange" type="range" min="0" max="1" step="0.01" />
+          <input id="rsNum" type="number" min="0" max="1" step="0.01" />
+        </div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      const BASE_RADIUS = 5;
+      const params = {
+        particleCount: 5000,
+        pulseAmplitude: 0.5,
+        pulseSpeed: 3,
+        rotationSpeed: 0.65,
+      };
+
+      const container = document.getElementById('app');
+
+      let width = container.clientWidth || window.innerWidth;
+      let height = container.clientHeight || window.innerHeight;
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      renderer.setSize(width, height);
+      container.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x02020a);
+
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 200);
+      camera.position.set(0, 0, BASE_RADIUS * 3);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.07;
+      controls.enablePan = false;
+      controls.minDistance = BASE_RADIUS * 1.2;
+      controls.maxDistance = BASE_RADIUS * 6;
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.25);
+      scene.add(ambient);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+      dir.position.set(5, 10, 7);
+      scene.add(dir);
+
+      let particleCount = params.particleCount;
+      function buildGeometry(count) {
+        const positions = new Float32Array(count * 3);
+        const normals = new Float32Array(count * 3);
+        const randoms = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+          const i3 = i * 3;
+          const phi = Math.acos(1 - 2 * (i + 0.5) / count);
+          const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+          const x = Math.sin(phi) * Math.cos(theta);
+          const y = Math.sin(phi) * Math.sin(theta);
+          const z = Math.cos(phi);
+          normals[i3] = x;
+          normals[i3 + 1] = y;
+          normals[i3 + 2] = z;
+          const jitter = (Math.random() - 0.5) * 0.02;
+          positions[i3] = x * (BASE_RADIUS + jitter);
+          positions[i3 + 1] = y * (BASE_RADIUS + jitter);
+          positions[i3 + 2] = z * (BASE_RADIUS + jitter);
+          randoms[i] = Math.random();
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        g.setAttribute('normalVec', new THREE.BufferAttribute(normals, 3));
+        g.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
+        return g;
+      }
+
+      let geometry = buildGeometry(particleCount);
+
+      const material = new THREE.PointsMaterial({
+        size: 0.06,
+        sizeAttenuation: true,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        color: new THREE.Color(0xffffff),
+        opacity: 0.9,
+      });
+
+      const points = new THREE.Points(geometry, material);
+      scene.add(points);
+
+      let running = true;
+      let resumeOnVisible = null;
+
+      const startTime = performance.now();
+      function animate() {
+        requestAnimationFrame(animate);
+        const elapsed = (performance.now() - startTime) / 1000;
+
+        if (running) {
+          const pulse = Math.sin(elapsed * params.pulseSpeed) * params.pulseAmplitude;
+          const pos = geometry.attributes.position.array;
+          const nrm = geometry.attributes.normalVec.array;
+          const rnd = geometry.attributes.aRandom.array;
+          for (let i = 0; i < particleCount; i++) {
+            const i3 = i * 3;
+            const r = rnd[i] * 0.8 + 0.2;
+            const localPulse = pulse * r;
+            const noise = Math.sin(elapsed * (0.7 + r * 2.0) + i) * 0.005;
+            const radius = BASE_RADIUS + localPulse;
+            pos[i3] = nrm[i3] * (radius + noise);
+            pos[i3 + 1] = nrm[i3 + 1] * (radius + noise);
+            pos[i3 + 2] = nrm[i3 + 2] * (radius + noise);
+          }
+          geometry.attributes.position.needsUpdate = true;
+        }
+
+        points.rotation.y = elapsed * params.rotationSpeed;
+        points.rotation.x = elapsed * (params.rotationSpeed * 0.18);
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      function handleResize() {
+        const w = container.clientWidth || window.innerWidth;
+        const h = container.clientHeight || window.innerHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+      window.addEventListener('resize', handleResize);
+
+      function handleVisibility() {
+        if (document.hidden) {
+          resumeOnVisible = running;
+          running = false;
+        } else {
+          if (resumeOnVisible !== null) {
+            running = resumeOnVisible;
+          }
+        }
+      }
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      // Panel controls
+      const pcRange = document.getElementById('pcRange');
+      const pcNum = document.getElementById('pcNum');
+      const paRange = document.getElementById('paRange');
+      const paNum = document.getElementById('paNum');
+      const psRange = document.getElementById('psRange');
+      const psNum = document.getElementById('psNum');
+      const rsRange = document.getElementById('rsRange');
+      const rsNum = document.getElementById('rsNum');
+
+      function sync(range, number, value) {
+        range.value = String(value);
+        number.value = String(value);
+      }
+
+      function bind(range, number, key, onChange) {
+        const set = (v) => {
+          const parsed = Number(v);
+          if (!Number.isFinite(parsed)) return;
+          params[key] = parsed;
+          if (onChange) onChange(parsed);
+        };
+        range.addEventListener('input', (e) => {
+          const v = e.target.value;
+          number.value = v;
+          set(v);
+        });
+        number.addEventListener('input', (e) => {
+          const v = e.target.value;
+          range.value = v;
+          set(v);
+        });
+      }
+
+      // Initialize values
+      sync(pcRange, pcNum, params.particleCount);
+      sync(paRange, paNum, params.pulseAmplitude);
+      sync(psRange, psNum, params.pulseSpeed);
+      sync(rsRange, rsNum, params.rotationSpeed);
+
+      // Rebuild geometry when the number of particles changes
+      function rebuildParticles(newCount) {
+        newCount = Math.max(100, Math.min(20000, Math.floor(newCount)));
+        const oldGeometry = geometry;
+        const newGeometry = buildGeometry(newCount);
+        points.geometry = newGeometry;
+        geometry = newGeometry;
+        particleCount = newCount;
+        oldGeometry.dispose();
+      }
+
+      // Update camera distance bounds when base radius changes
+      function updateCameraBounds() {
+        controls.minDistance = BASE_RADIUS * 1.2;
+        controls.maxDistance = BASE_RADIUS * 6;
+      }
+      updateCameraBounds();
+
+      bind(pcRange, pcNum, 'particleCount', (v) => rebuildParticles(v));
+      bind(paRange, paNum, 'pulseAmplitude');
+      bind(psRange, psNum, 'pulseSpeed');
+      bind(rsRange, rsNum, 'rotationSpeed');
+    </script>
+  </body>
+  </html>
+
+
