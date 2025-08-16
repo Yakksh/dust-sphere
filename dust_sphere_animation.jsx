@@ -3,14 +3,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 /*
- Dust-sphere-animation — standalone Three.js implementation (no react-three-fiber)
-
- Why this rewrite?
- - Previous errors came from refs/JSX buffer attribute lifecycle when using react-three-fiber.
- - This version uses a plain Three.js scene created/managed inside useEffect so we control creation order and avoid "source"/ref timing issues.
- - Includes quick-tests (UI buttons) that verify geometry attribute counts and existence of the Points object.
- - Clean disposal on unmount to avoid GPU memory leaks.
-
+ Dust-sphere-animation — standalone Three.js implementation
+ 
  How to use:
  - Install three: `npm i three`
  - Drop this file into your React app and render <DustSphereApp />.
