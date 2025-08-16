@@ -51,6 +51,7 @@
         background: rgba(255,255,255,0.06);
         color: #fff;
       }
+
     </style>
   </head>
   <body>
@@ -79,6 +80,7 @@
       </div>
     </div>
 
+    <!-- Import map so bare specifiers 'three' and 'three/addons/*' resolve from CDN -->
     <script type="importmap">
       {
         "imports": {
@@ -89,9 +91,12 @@
     </script>
 
     <script type="module">
+      // Dust sphere rendered with Three.js Points. Particles are sprite-textured and
+      // animated along surface normals to create a subtle breathing/pulsing effect.
       import * as THREE from 'three';
       import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+      // Simulation constants and live-tunable parameters
       const BASE_RADIUS = 5;
       const params = {
         particleCount: 5000,
@@ -100,29 +105,36 @@
         rotationSpeed: 0.65,
       };
 
+      // Mount point
       const container = document.getElementById('app');
 
       let width = container.clientWidth || window.innerWidth;
       let height = container.clientHeight || window.innerHeight;
 
+      // High-quality renderer with pixel ratio cap for perf
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
       renderer.setSize(width, height);
       container.appendChild(renderer.domElement);
 
+      // Scene and camera. Near plane kept tiny to support extreme zoom-ins
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x02020a);
 
-      const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 200);
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.001, 500);
       camera.position.set(0, 0, BASE_RADIUS * 3);
 
+      // Orbit controls tuned for smooth feel and wide zoom range
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.07;
       controls.enablePan = false;
-      controls.minDistance = BASE_RADIUS * 1.2;
-      controls.maxDistance = BASE_RADIUS * 6;
+      // Allow very close and very far zoom ranges
+      controls.minDistance = BASE_RADIUS * 0.05;
+      controls.maxDistance = BASE_RADIUS * 20;
+      controls.zoomSpeed = 1.5;
 
+      // Subtle lighting to give the sprite a sense of depth
       const ambient = new THREE.AmbientLight(0xffffff, 0.25);
       scene.add(ambient);
       const dir = new THREE.DirectionalLight(0xffffff, 0.6);
@@ -130,6 +142,8 @@
       scene.add(dir);
 
       let particleCount = params.particleCount;
+      // Build a uniformly-distributed sphere using a Fibonacci spiral. We store
+      // the unit normal for each point so we can offset it on every frame.
       function buildGeometry(count) {
         const positions = new Float32Array(count * 3);
         const normals = new Float32Array(count * 3);
@@ -159,6 +173,7 @@
 
       let geometry = buildGeometry(particleCount);
 
+      // Points material uses a sprite texture for round, soft particles
       const material = new THREE.PointsMaterial({
         size: 0.06,
         sizeAttenuation: true,
@@ -169,12 +184,60 @@
         opacity: 0.9,
       });
 
+      // Default circular sprite generated via canvas
+      function makeCircleTexture(size = 128) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const r = size / 2;
+        const gradient = ctx.createRadialGradient(r, r, 0, r, r, r);
+        // Soft radial falloff for a glow-like look
+        gradient.addColorStop(0.0, 'rgba(255,255,255,1.0)');
+        gradient.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+        gradient.addColorStop(1.0, 'rgba(255,255,255,0.0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(r, r, r, 0, Math.PI * 2);
+        ctx.fill();
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.generateMipmaps = true;
+        tex.minFilter = THREE.LinearMipMapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        return tex;
+      }
+
+      function applyTexture(tex) {
+        if (!tex) return;
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        material.map = tex;
+        material.alphaTest = 0.02;
+        material.needsUpdate = true;
+      }
+
+      const defaultTexture = makeCircleTexture(128);
+      applyTexture(defaultTexture);
+      // Optional repo-local sprite. If present, we prefer it over the default.
+      const PLACEHOLDER_SPRITE_PATH = 'magic/universe.png';
+      const placeholderLoader = new THREE.TextureLoader();
+      placeholderLoader.load(PLACEHOLDER_SPRITE_PATH, (tex) => {
+        tex.generateMipmaps = true;
+        tex.minFilter = THREE.LinearMipMapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        applyTexture(tex);
+      }, undefined, () => {
+        // If not found, continue with the default canvas sprite
+      });
+
       const points = new THREE.Points(geometry, material);
       scene.add(points);
 
       let running = true;
       let resumeOnVisible = null;
 
+      // Main loop: offset particles along their normals with a sinusoidal pulse
+      // plus a tiny per-point noise term; also rotate the cloud slowly.
       const startTime = performance.now();
       function animate() {
         requestAnimationFrame(animate);
@@ -206,6 +269,7 @@
       }
       animate();
 
+      // Keep renderer/camera in sync with viewport
       function handleResize() {
         const w = container.clientWidth || window.innerWidth;
         const h = container.clientHeight || window.innerHeight;
@@ -215,6 +279,7 @@
       }
       window.addEventListener('resize', handleResize);
 
+      // Auto-pause when the tab is hidden to save resources; resume on return
       function handleVisibility() {
         if (document.hidden) {
           resumeOnVisible = running;
@@ -227,7 +292,7 @@
       }
       document.addEventListener('visibilitychange', handleVisibility);
 
-      // Panel controls
+      // Panel controls (sliders + numeric inputs)
       const pcRange = document.getElementById('pcRange');
       const pcNum = document.getElementById('pcNum');
       const paRange = document.getElementById('paRange');
@@ -237,11 +302,13 @@
       const rsRange = document.getElementById('rsRange');
       const rsNum = document.getElementById('rsNum');
 
+      // Keep paired inputs in sync
       function sync(range, number, value) {
         range.value = String(value);
         number.value = String(value);
       }
 
+      // Bind a UI input pair to a parameter, with optional onChange hook
       function bind(range, number, key, onChange) {
         const set = (v) => {
           const parsed = Number(v);
@@ -267,7 +334,7 @@
       sync(psRange, psNum, params.pulseSpeed);
       sync(rsRange, rsNum, params.rotationSpeed);
 
-      // Rebuild geometry when the number of particles changes
+      // Rebuild buffers when the number of particles changes
       function rebuildParticles(newCount) {
         newCount = Math.max(100, Math.min(20000, Math.floor(newCount)));
         const oldGeometry = geometry;
@@ -278,10 +345,10 @@
         oldGeometry.dispose();
       }
 
-      // Update camera distance bounds when base radius changes
+      // Keep control bounds aligned with the chosen base radius
       function updateCameraBounds() {
-        controls.minDistance = BASE_RADIUS * 1.2;
-        controls.maxDistance = BASE_RADIUS * 6;
+        controls.minDistance = BASE_RADIUS * 0.05;
+        controls.maxDistance = BASE_RADIUS * 20;
       }
       updateCameraBounds();
 
@@ -289,6 +356,9 @@
       bind(paRange, paNum, 'pulseAmplitude');
       bind(psRange, psNum, 'pulseSpeed');
       bind(rsRange, rsNum, 'rotationSpeed');
+
+
+
     </script>
   </body>
   </html>
